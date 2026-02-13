@@ -27,18 +27,15 @@ async def llm_call(state: State) -> State:
 
 
 @entrypoint
-async def main(input: dict[str, Any], context: RequestContext) -> str:
-    initial_state: State = {"input": str(input.get("prompt", "")), "output": None}
+async def main(payload: dict[str, Any], context: RequestContext) -> dict[str, str]:
+    initial_state: State = {"input": str(payload.get("prompt", "")), "output": None}
 
-    graph: StateGraph[State, None, State, State] = StateGraph[
-        State, None, State, State
-    ](state_schema=State)
+    graph = StateGraph(State)
     graph.add_node("llm_call", llm_call)
-    graph.set_entry_point(key="llm_call")
+    graph.set_entry_point("llm_call")
 
-    app: CompiledStateGraph[State, None, State, State] = graph.compile()
+    app = graph.compile()
+    result_any = await app.ainvoke(initial_state)
+    result = cast(State, result_any)
 
-    result_any: dict[str, Any] | Any = await app.ainvoke(input=initial_state)
-    result: State = cast(State, result_any)
-
-    return result["output"] or ""
+    return {"response": result["output"] or ""}
